@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Heart Disease Risk Predictor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6fa;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      width: 90%;
+      max-width: 450px;
+      margin: 12px auto;
+    }
+    h2, h3 { text-align: center; }
+    label { display: block; margin-top: 10px; font-weight: bold; }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin-top: 15px;
+      background: #6200ee;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .btn:hover { background: #4e00c9; }
+    .btn-google { background: #db4437; }
+    .btn-logout { background: #333; }
+    .hidden { display: none; }
+    #loading { text-align: center; color: #6200ee; font-size: 18px; }
+    ul { padding-left: 20px; }
+    .hospital-list ul {
+      list-style: none;
+      padding: 0;
+    }
+    .hospital-list li {
+      background: #f8f8f8;
+      margin: 6px 0;
+      padding: 10px;
+      border-radius: 6px;
+      border-left: 4px solid #6200ee;
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Login Section -->
+<div id="login-screen" class="card">
+  <h2>Login / Signup</h2>
+  <input id="email" type="email" placeholder="Enter Email" />
+  <input id="password" type="password" placeholder="Enter Password" />
+  <button id="btn-login" class="btn">Login</button>
+  <button id="btn-signup" class="btn">Signup</button>
+  <button id="btn-google" class="btn btn-google">Login with Google</button>
+</div>
+
+<!-- Main App Section -->
+<div id="app-screen" class="hidden">
+  <div class="card">
+    <h2>Welcome <span id="user-email"></span></h2>
+    <button id="btn-logout" class="btn btn-logout">Logout</button>
+  </div>
+
+  <!-- Step 1: Enter Heart Disease Information -->
+  <div id="step1" class="card">
+    <h3>Enter Information Related to Heart Diseases</h3>
+    <form id="patient-form">
+      <label>Age: <input type="number" name="Age" required></label>
+      <label>Gender:
+        <select name="Gender">
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+        </select>
+      </label>
+      <label>Blood Pressure: <input type="number" name="Blood Pressure" required></label>
+      <label>Cholesterol Level: <input type="number" name="Cholesterol Level" required></label>
+      <label>BMI: <input type="number" step="0.1" name="BMI" required></label>
+      <label>Smoking:
+        <select name="Smoking">
+          <option value="Yes">Yes</option>
+          <option value="No">No</option>
+        </select>
+      </label>
+      <button type="submit" class="btn">Predict Heart Disease Risk</button>
+    </form>
+  </div>
+
+  <!-- Step 2: Prediction Result -->
+  <div id="result" class="card hidden">
+    <h3>Prediction Result</h3>
+    <p id="prediction-text"></p>
+    <p id="probability-text"></p>
+    <button id="btn-next" class="btn">Next: Find Nearby Hospitals</button>
+  </div>
+
+  <!-- Step 3: Enter Location for Hospitals -->
+  <div id="location-step" class="card hidden">
+    <h3>Enter Your Location</h3>
+    <label>Location (City or GPS):
+      <input type="text" id="location-input" placeholder="Enter your city or use GPS">
+    </label>
+    <button id="btn-get-location" class="btn">Use GPS Location</button>
+    <button id="btn-get-hospitals" class="btn">Get Nearby Hospitals</button>
+  </div>
+
+  <div id="loading" class="hidden">Processing...</div>
+  <div id="nearby" class="card hidden">
+    <h3>Nearby Hospitals</h3>
+    <div id="hosp-list" class="hospital-list">Fetching hospitals...</div>
+  </div>
+</div>
+
+<script>
+  // Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyDjlb8yixe3EqT_FjDtfhTYblOYtykifys",
+    authDomain: "heart-login-ba54f.firebaseapp.com",
+    projectId: "heart-login-ba54f",
+    storageBucket: "heart-login-ba54f.firebasestorage.app",
+    messagingSenderId: "942373343841",
+    appId: "1:942373343841:web:44a728dbeb411ea85a9020",
+    measurementId: "G-ZGBCFZNKL9"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+
+  // Elements
+  const loginScreen = document.getElementById('login-screen');
+  const appScreen = document.getElementById('app-screen');
+  const userEmailSpan = document.getElementById('user-email');
+  const step1 = document.getElementById('step1');
+  const resultDiv = document.getElementById('result');
+  const locationStep = document.getElementById('location-step');
+  const loadingDiv = document.getElementById('loading');
+  const nearbyDiv = document.getElementById('nearby');
+  const predictionText = document.getElementById('prediction-text');
+  const probabilityText = document.getElementById('probability-text');
+  const locationInput = document.getElementById('location-input');
+
+  // Firebase Auth State
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      loginScreen.classList.add('hidden');
+      appScreen.classList.remove('hidden');
+      userEmailSpan.textContent = user.email;
+    } else {
+      loginScreen.classList.remove('hidden');
+      appScreen.classList.add('hidden');
+    }
+  });
+
+  // Auth actions
+  document.getElementById('btn-login').onclick = async () => {
+    const email = document.getElementById('email').value;
+    const pw = document.getElementById('password').value;
+    try { await auth.signInWithEmailAndPassword(email, pw); }
+    catch(e){ alert(e.message); }
+  };
+  document.getElementById('btn-signup').onclick = async () => {
+    const email = document.getElementById('email').value;
+    const pw = document.getElementById('password').value;
+    try { await auth.createUserWithEmailAndPassword(email, pw); }
+    catch(e){ alert(e.message); }
+  };
+  document.getElementById('btn-google').onclick = async () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try { await auth.signInWithPopup(provider); }
+    catch(e){ alert(e.message); }
+  };
+  document.getElementById('btn-logout').onclick = () => auth.signOut();
+
+  // Step 1: Predict form submission
+  document.getElementById('patient-form').onsubmit = async (e) => {
+    e.preventDefault();
+    loadingDiv.classList.remove('hidden');
+    resultDiv.classList.add('hidden');
+    locationStep.classList.add('hidden');
+    nearbyDiv.classList.add('hidden');
+
+    const formData = new FormData(e.target);
+    let features = {};
+    formData.forEach((v,k)=> features[k]=v);
+
+    try {
+      const res = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ features: features })
+      });
+      const data = await res.json();
+      loadingDiv.classList.add('hidden');
+
+      if (data.error) {
+        alert("Error: " + data.error);
+        return;
+      }
+
+      // Show prediction result
+      resultDiv.classList.remove('hidden');
+      predictionText.innerHTML = `<b>Risk:</b> ${data.prediction}`;
+      probabilityText.innerHTML = `<b>Probability:</b> ${(data.probability * 100).toFixed(2)}%`;
+
+      // Hide step1
+      step1.classList.add('hidden');
+
+    } catch (err) {
+      loadingDiv.classList.add('hidden');
+      alert("Prediction failed: " + err);
+    }
+  };
+
+  // Next button to go to location step
+  document.getElementById('btn-next').onclick = () => {
+    resultDiv.classList.add('hidden');
+    locationStep.classList.remove('hidden');
+  };
+
+  // Get GPS location
+  document.getElementById('btn-get-location').onclick = async () => {
+    if (navigator.geolocation) {
+      try {
+        const coords = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            pos => resolve(pos.coords),
+            reject,
+            {timeout: 5000}
+          );
+        });
+        locationInput.value = `${coords.latitude},${coords.longitude}`;
+      } catch {
+        alert("Unable to get GPS location. Please enter manually.");
+      }
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
+  };
+
+  // Get hospitals
+  document.getElementById('btn-get-hospitals').onclick = async () => {
+    let location = locationInput.value.trim();
+    if (!location) {
+      alert("Please enter a location or use GPS.");
+      return;
+    }
+
+    // If location looks like GPS coordinates, convert to city name (mock)
+    const gpsRegex = /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/;
+    if (gpsRegex.test(location)) {
+      // For demo, map some GPS coords to city names
+      const gpsToCity = {
+        "40.7128,-74.0060": "New York",
+        "37.7749,-122.4194": "San Francisco",
+        "13.0827,80.2707": "Chennai",
+        "22.5726,88.3639": "Kolkata",
+        "11.0168,76.9558": "Coimbatore"
+      };
+      // Remove spaces to match keys
+      const normalizedLocation = location.replace(/\s+/g, '');
+      location = gpsToCity[normalizedLocation] || location;
+    }
+
+    loadingDiv.classList.remove('hidden');
+    nearbyDiv.classList.add('hidden');
+
+    try {
+      const res = await fetch("/hospitals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location: location })
+      });
+
+      if (!res.ok) {
+        throw new Error("Network response was not ok");
+      }
+
+      const data = await res.json();
+      loadingDiv.classList.add('hidden');
+
+      if (data.error) {
+        alert("Error: " + data.error);
+        return;
+      }
+
+      // Show hospitals
+      nearbyDiv.classList.remove('hidden');
+      if (data.nearby_hospitals && data.nearby_hospitals.length > 0) {
+        document.getElementById('hosp-list').innerHTML =
+          '<ul>' + data.nearby_hospitals.map(h => `<li>${h}</li>`).join('') + '</ul>';
+      } else {
+        document.getElementById('hosp-list').innerHTML = "<p>No hospitals found.</p>";
+      }
+
+    } catch (err) {
+      loadingDiv.classList.add('hidden');
+      alert("Failed to fetch hospitals: " + err);
+    }
+  };
+</script>
+</body>
+</html>
