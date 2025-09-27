@@ -4,128 +4,529 @@
   <meta charset="UTF-8">
   <title>Heart Disease Risk Predictor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
-      font-family: Arial, sans-serif;
-      background: #f4f6fa;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       margin: 0;
       padding: 0;
+      min-height: 100vh;
+      overflow-x: hidden;
+      color: #333;
+    }
+
+    /* Split Layout for Login and Prediction */
+    .split-container {
       display: flex;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      min-height: 100vh;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border-radius: 20px;
+      overflow: hidden;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+
+    .split-left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
+      padding: 60px 40px;
+      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+      color: #333;
+      text-align: center;
+      position: relative;
+    }
+
+    .split-left::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+      opacity: 0.5;
+    }
+
+    .split-right {
+      flex: 1;
+      padding: 60px 40px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      display: flex;
       flex-direction: column;
-      min-height: 100vh;
+      justify-content: center;
     }
-    .card {
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      width: 90%;
-      max-width: 450px;
-      margin: 12px auto;
+
+    /* Enhanced Heart Icon */
+    .heart {
+      width: 120px;
+      height: 110px;
+      position: relative;
+      animation: pulse 1.5s infinite ease-in-out;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
     }
-    h2, h3 { text-align: center; }
-    label { display: block; margin-top: 10px; font-weight: bold; }
+
+    .heart:before,
+    .heart:after {
+      content: "";
+      width: 62px;
+      height: 95px;
+      position: absolute;
+      left: 60px;
+      transform: rotate(-45deg);
+      background: linear-gradient(135deg, #e91e63, #f06292);
+      border-radius: 60px 60px 0 0;
+      transform-origin: 0 100%;
+    }
+
+    .heart:after {
+      left: 0;
+      transform: rotate(45deg);
+      transform-origin: 100% 100%;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    /* For prediction left panel */
+    .prediction-left {
+      background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+      color: white;
+    }
+
+    .prediction-left h3 {
+      font-size: 2.5em;
+      margin-bottom: 20px;
+      font-weight: 700;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Form Styling */
+    h2 { 
+      margin-bottom: 30px; 
+      text-align: center; 
+      color: #333; 
+      font-weight: 600;
+      font-size: 2em;
+    }
+    label { 
+      display: block; 
+      margin-top: 20px; 
+      font-weight: 500; 
+      color: #555; 
+      font-size: 1.1em;
+    }
     input, select {
       width: 100%;
-      padding: 8px;
-      margin-top: 4px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
+      padding: 15px;
+      margin-top: 8px;
+      border-radius: 12px;
+      border: 2px solid #e0e0e0;
+      box-sizing: border-box;
+      transition: all 0.3s ease;
+      font-size: 16px;
+      background: rgba(255,255,255,0.9);
+      font-family: 'Poppins', sans-serif;
     }
+    input:focus, select:focus {
+      border-color: #6200ee;
+      box-shadow: 0 0 15px rgba(98, 0, 238, 0.2);
+      outline: none;
+      transform: translateY(-2px);
+    }
+
+    /* Grid for Prediction Form */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 25px;
+      margin-bottom: 30px;
+    }
+
+    .form-grid label {
+      grid-column: span 1;
+    }
+
+    /* Enhanced Buttons */
     .btn {
       display: block;
       width: 100%;
-      padding: 10px;
+      padding: 15px;
       margin-top: 15px;
-      background: #6200ee;
+      background: linear-gradient(135deg, #6200ee, #7b1fa2);
       color: white;
       border: none;
-      border-radius: 8px;
-      font-size: 16px;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 600;
       cursor: pointer;
-      transition: 0.3s;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(98, 0, 238, 0.3);
+      font-family: 'Poppins', sans-serif;
     }
-    .btn:hover { background: #4e00c9; }
-    .btn-google { background: #db4437; }
-    .btn-logout { background: #333; }
-    .hidden { display: none; }
-    #loading { text-align: center; color: #6200ee; font-size: 18px; }
-    ul { padding-left: 20px; }
+    .btn:hover {
+      background: linear-gradient(135deg, #4e00c9, #5e35b1);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(98, 0, 238, 0.4);
+    }
+    .btn-logout { 
+      background: linear-gradient(135deg, #333, #555); 
+      width: auto; 
+      padding: 10px 20px; 
+      margin-top: 10px; 
+      border-radius: 25px;
+    }
+    .btn-logout:hover { 
+      background: linear-gradient(135deg, #555, #777);
+      transform: translateY(-2px);
+    }
+
+    /* Animations */
+    .fade-in {
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Enhanced Cards */
+    .card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(15px);
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      width: 90%;
+      max-width: 700px;
+      margin: 30px auto;
+      animation: fadeIn 0.6s ease-out;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    h3 { 
+      text-align: center; 
+      color: #6200ee; 
+      font-size: 1.8em;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    #loading { 
+      text-align: center; 
+      color: #6200ee; 
+      font-size: 20px; 
+      margin: 30px; 
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    ul { padding-left: 0; }
     .hospital-list ul {
       list-style: none;
       padding: 0;
     }
     .hospital-list li {
-      background: #f8f8f8;
-      margin: 6px 0;
+      background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+      margin: 10px 0;
+      padding: 15px;
+      border-radius: 12px;
+      border-left: 5px solid #6200ee;
+      font-size: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      transition: transform 0.2s;
+    }
+    .hospital-list li:hover {
+      transform: translateX(5px);
+    }
+
+    /* Link for login/signup toggle */
+    .toggle-link {
+      text-align: center;
+      margin-top: 20px;
+      color: #6200ee;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.3s;
+    }
+    .toggle-link:hover { 
+      color: #4e00c9; 
+      text-decoration: underline;
+    }
+
+    /* Hide class */
+    .hidden { display: none; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .split-container { 
+        flex-direction: column; 
+        margin: 10px;
+        border-radius: 15px;
+      }
+      .split-left, .split-right { 
+        padding: 30px 20px; 
+        min-height: auto; 
+      }
+      .form-grid { 
+        grid-template-columns: 1fr; 
+        gap: 15px;
+      }
+      .heart {
+        width: 80px;
+        height: 70px;
+      }
+      .heart:before,
+      .heart:after {
+        width: 40px;
+        height: 60px;
+        left: 40px;
+      }
+      .heart:after {
+        left: 0;
+      }
+    }
+
+    /* Welcome card enhancements */
+    .welcome-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 700px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 20px 30px;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    }
+    .welcome-card h2 { 
+      margin: 0; 
+      flex: 1; 
+      font-size: 1.5em;
+      font-weight: 600;
+    }
+
+    /* Result card enhancements */
+    #result {
+      background: linear-gradient(135deg, #4caf50, #81c784);
+      color: white;
+    }
+    #result h3 {
+      color: white;
+    }
+    #result p {
+      font-size: 1.2em;
+      margin: 15px 0;
+      font-weight: 500;
+    }
+
+    /* Location step enhancements */
+    #location-step {
+      background: linear-gradient(135deg, #ff9800, #ffb74d);
+      color: white;
+    }
+    #location-step h3 {
+      color: white;
+    }
+    #location-step input {
+      background: rgba(255,255,255,0.9);
+    }
+
+    /* Nearby hospitals enhancements */
+    #nearby {
+      background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+      border-left: 5px solid #4caf50;
+    }
+    #nearby h3 {
+      color: #2e7d32;
+    }
+
+    /* Dashboard Enhancements */
+    .dashboard-card {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .prediction-summary {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .prediction-summary p {
+      font-size: 1.3em;
+      margin: 10px 0;
+      font-weight: 600;
+    }
+    .charts-container {
+      display: flex;
+      justify-content: space-around;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .charts-container canvas {
+      max-width: 100%;
+      height: 300px !important;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .suggestions-card {
+      background: rgba(76, 175, 80, 0.1);
+      border: 1px solid #4caf50;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .suggestions-card h4 {
+      color: #2e7d32;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .suggestions-card ul {
+      list-style: none;
+      padding: 0;
+    }
+    .suggestions-card li {
       padding: 10px;
-      border-radius: 6px;
-      border-left: 4px solid #6200ee;
-      font-size: 15px;
+      margin: 5px 0;
+      background: rgba(255,255,255,0.7);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .suggestions-card i {
+      color: #4caf50;
+      font-size: 1.2em;
+    }
+
+    @media (max-width: 768px) {
+      .charts-container {
+        flex-direction: column;
+        align-items: center;
+      }
+      .charts-container canvas {
+        width: 100% !important;
+        max-width: 300px;
+      }
     }
   </style>
 </head>
 <body>
 
 <!-- Login Section -->
-<div id="login-screen" class="card">
-  <h2>Login / Signup</h2>
-  <input id="email" type="email" placeholder="Enter Email" />
-  <input id="password" type="password" placeholder="Enter Password" />
-  <button id="btn-login" class="btn">Login</button>
-  <button id="btn-signup" class="btn">Signup</button>
-  <button id="btn-google" class="btn btn-google">Login with Google</button>
+<div id="login-screen" class="split-container fade-in">
+  <div class="split-left">
+    <div class="heart"></div>
+    <h2>Heart Disease Prediction</h2>
+    <p>Assess your heart health with our advanced predictor.</p>
+  </div>
+  <div class="split-right">
+    <div id="signup-form" class="hidden">
+      <h2>Sign Up</h2>
+      <input id="username" type="text" placeholder="Enter Username" />
+      <input id="email" type="email" placeholder="Enter Email" />
+      <input id="password" type="password" placeholder="Enter Password" />
+      <button id="btn-signup" class="btn">Sign Up</button>
+      <p class="toggle-link" id="toggle-login">Already registered? Click Login</p>
+    </div>
+    <div id="login-form">
+      <h2>Login</h2>
+      <input id="email-login" type="email" placeholder="Enter Email" />
+      <input id="password-login" type="password" placeholder="Enter Password" />
+      <button id="btn-login" class="btn">Login</button>
+      <p class="toggle-link" id="toggle-signup">Don't have an account? Click Sign Up</p>
+    </div>
+  </div>
 </div>
 
 <!-- Main App Section -->
 <div id="app-screen" class="hidden">
-  <div class="card">
-    <h2>Welcome <span id="user-email"></span></h2>
+  <div class="card welcome-card">
+    <h2>Welcome <span id="user-email"></span> ❤️</h2>
     <button id="btn-logout" class="btn btn-logout">Logout</button>
   </div>
 
+
+
   <!-- Step 1: Enter Heart Disease Information -->
-  <div id="step1" class="card">
-    <h3>Enter Information Related to Heart Diseases</h3>
-    <form id="patient-form">
-      <label>Age: <input type="number" name="Age" required></label>
-      <label>Gender:
-        <select name="Gender">
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-        </select>
-      </label>
-      <label>Blood Pressure: <input type="number" name="Blood Pressure" required></label>
-      <label>Cholesterol Level: <input type="number" name="Cholesterol Level" required></label>
-      <label>BMI: <input type="number" step="0.1" name="BMI" required></label>
-      <label>Smoking:
-        <select name="Smoking">
-          <option value="Yes">Yes</option>
-          <option value="No">No</option>
-        </select>
-      </label>
-      <button type="submit" class="btn">Predict Heart Disease Risk</button>
-    </form>
+  <div id="step1" class="split-container fade-in">
+    <div class="split-left prediction-left">
+      <div class="heart"></div>
+      <h3>Examining your heart</h3>
+      <p>Provide accurate information for precise prediction.</p>
+    </div>
+    <div class="split-right">
+      <h3>Enter Information Related to Heart Diseases</h3>
+      <form id="patient-form" class="form-grid">
+        <label>Age: <input type="number" name="Age" required></label>
+        <label>Gender:
+          <select name="Gender">
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+        </label>
+        <label>Blood Pressure: <input type="number" name="Blood Pressure" required></label>
+        <label>Cholesterol Level: <input type="number" name="Cholesterol Level" required></label>
+        <label>BMI: <input type="number" step="0.1" name="BMI" required></label>
+        <label>Smoking:
+          <select name="Smoking">
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </label>
+        <div style="grid-column: span 2;">
+          <button type="submit" class="btn">Predict Heart Disease Risk</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Step 2: Prediction Result -->
-  <div id="result" class="card hidden">
-    <h3>Prediction Result</h3>
-    <p id="prediction-text"></p>
-    <p id="probability-text"></p>
+  <div id="result" class="card hidden dashboard-card">
+    <h3>Health Report Dashboard ❤️</h3>
+    <div class="prediction-summary">
+      <p id="prediction-text"></p>
+      <p id="probability-text"></p>
+    </div>
+    <div class="charts-container">
+      <canvas id="risk-pie-chart"></canvas>
+      <canvas id="metrics-bar-chart"></canvas>
+    </div>
+    <div id="suggestions" class="suggestions-card hidden">
+      <h4>Personalized Health Recommendations <i class="fas fa-heartbeat"></i></h4>
+      <ul id="suggestions-list"></ul>
+    </div>
     <button id="btn-next" class="btn">Next: Find Nearby Hospitals</button>
   </div>
 
   <!-- Step 3: Enter Location for Hospitals -->
   <div id="location-step" class="card hidden">
-    <h3>Enter Your Location</h3>
+    <h3>Enter Your Location 📍</h3>
     <label>Location (City or GPS):
       <input type="text" id="location-input" placeholder="Enter your city or use GPS">
     </label>
@@ -133,9 +534,9 @@
     <button id="btn-get-hospitals" class="btn">Get Nearby Hospitals</button>
   </div>
 
-  <div id="loading" class="hidden">Processing...</div>
-  <div id="nearby" class="card hidden">
-    <h3>Nearby Hospitals</h3>
+  <div id="loading" class="hidden">Processing... 🔄</div>
+  <div id="nearby" class="card hidden" style="background: linear-gradient(to bottom, #e8f5e8, #f0f8f0); border-left: 5px solid #4caf50;">
+    <h3>Nearby Hospitals 🏥</h3>
     <div id="hosp-list" class="hospital-list">Fetching hospitals...</div>
   </div>
 </div>
@@ -167,34 +568,44 @@
   const probabilityText = document.getElementById('probability-text');
   const locationInput = document.getElementById('location-input');
 
+  // Login/Signup toggle
+  const signupForm = document.getElementById('signup-form');
+  const loginForm = document.getElementById('login-form');
+  document.getElementById('toggle-login').onclick = () => {
+    signupForm.classList.add('hidden');
+    loginForm.classList.remove('hidden');
+  };
+  document.getElementById('toggle-signup').onclick = () => {
+    loginForm.classList.add('hidden');
+    signupForm.classList.remove('hidden');
+  };
+
   // Firebase Auth State
   auth.onAuthStateChanged(user => {
     if (user) {
       loginScreen.classList.add('hidden');
       appScreen.classList.remove('hidden');
       userEmailSpan.textContent = user.email;
+      // Add fade-in to app sections
+      appScreen.querySelectorAll('.card, .split-container').forEach(el => el.classList.add('fade-in'));
     } else {
       loginScreen.classList.remove('hidden');
       appScreen.classList.add('hidden');
     }
   });
 
-  // Auth actions
+  // Auth actions - Updated for toggle
   document.getElementById('btn-login').onclick = async () => {
-    const email = document.getElementById('email').value;
-    const pw = document.getElementById('password').value;
+    const email = document.getElementById('email-login').value;
+    const pw = document.getElementById('password-login').value;
     try { await auth.signInWithEmailAndPassword(email, pw); }
     catch(e){ alert(e.message); }
   };
   document.getElementById('btn-signup').onclick = async () => {
     const email = document.getElementById('email').value;
     const pw = document.getElementById('password').value;
+    // Username not used in auth, just UI
     try { await auth.createUserWithEmailAndPassword(email, pw); }
-    catch(e){ alert(e.message); }
-  };
-  document.getElementById('btn-google').onclick = async () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    try { await auth.signInWithPopup(provider); }
     catch(e){ alert(e.message); }
   };
   document.getElementById('btn-logout').onclick = () => auth.signOut();
@@ -215,7 +626,7 @@
       const res = await fetch("/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ features: features })
+        body: JSON.stringify({ features: features, user_id: auth.currentUser.uid })
       });
       const data = await res.json();
       loadingDiv.classList.add('hidden');
@@ -225,13 +636,131 @@
         return;
       }
 
-      // Show prediction result
+      // Store features for charts and suggestions
+      const prob = data.probability;
+      const riskProb = (prob * 100).toFixed(2);
+      const safeProb = (100 - riskProb).toFixed(2);
+
+      // Show prediction result with animation
       resultDiv.classList.remove('hidden');
-      predictionText.innerHTML = `<b>Risk:</b> ${data.prediction}`;
-      probabilityText.innerHTML = `<b>Probability:</b> ${(data.probability * 100).toFixed(2)}%`;
+      resultDiv.classList.add('fade-in');
+      predictionText.innerHTML = `<b>Risk Level:</b> ${data.prediction}`;
+      probabilityText.innerHTML = `<b>Disease Probability:</b> ${riskProb}%`;
 
       // Hide step1
       step1.classList.add('hidden');
+
+      // Render Pie Chart: Risk vs No Risk
+      const pieCtx = document.getElementById('risk-pie-chart').getContext('2d');
+      new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+          labels: ['Heart Disease Risk', 'No Risk'],
+          datasets: [{
+            data: [riskProb, safeProb],
+            backgroundColor: ['#ff9800', '#4caf50'],
+            borderWidth: 2,
+            borderColor: '#fff'
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { font: { family: 'Poppins' } }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `${context.label}: ${context.parsed}%`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Render Bar Chart: Key Metrics with color coding
+      const barCtx = document.getElementById('metrics-bar-chart').getContext('2d');
+      const bp = parseFloat(features['Blood Pressure']) || 0;
+      const chol = parseFloat(features['Cholesterol Level']) || 0;
+      const bmi = parseFloat(features['BMI']) || 0;
+
+      // Color logic: orange if high, green if normal
+      const bpColor = bp > 140 ? '#ff9800' : '#4caf50';
+      const cholColor = chol > 200 ? '#ff9800' : '#4caf50';
+      const bmiColor = bmi > 25 ? '#ff9800' : '#4caf50';
+
+      new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: ['Blood Pressure (mmHg)', 'Cholesterol (mg/dL)', 'BMI'],
+          datasets: [{
+            label: 'Your Values',
+            data: [bp, chol, bmi],
+            backgroundColor: [bpColor, cholColor, bmiColor],
+            borderColor: '#333',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Value', font: { family: 'Poppins' } }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  let status = 'Normal';
+                  if (context.dataIndex === 0 && bp > 140) status = 'High';
+                  if (context.dataIndex === 1 && chol > 200) status = 'High';
+                  if (context.dataIndex === 2 && bmi > 25) status = 'Overweight';
+                  return `${context.label}: ${context.parsed.y} (${status})`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Generate and show suggestions if high risk
+      const suggestionsDiv = document.getElementById('suggestions');
+      const suggestionsList = document.getElementById('suggestions-list');
+      if (prob > 0.5) {
+        let suggestionsHtml = '';
+        if (features['Smoking'] === 'Yes') {
+          suggestionsHtml += '<li><i class="fas fa-smoking-ban"></i> Quit smoking immediately to reduce heart disease risk by up to 30%.</li>';
+        }
+        if (bmi > 25) {
+          suggestionsHtml += '<li><i class="fas fa-apple-alt"></i> Adopt a balanced, low-carb diet and aim for 30 minutes of daily exercise to manage BMI.</li>';
+        }
+        if (bp > 140) {
+          suggestionsHtml += '<li><i class="fas fa-heart"></i> Follow a DASH diet (low sodium, rich in fruits/veggies) and monitor blood pressure regularly.</li>';
+        }
+        if (chol > 200) {
+          suggestionsHtml += '<li><i class="fas fa-fish"></i> Incorporate omega-3 rich foods like fish, nuts, and avocados to lower cholesterol levels.</li>';
+        }
+        suggestionsHtml += '<li><i class="fas fa-user-md"></i> Consult a healthcare professional for personalized advice and regular check-ups.</li>';
+        suggestionsList.innerHTML = suggestionsHtml;
+        suggestionsDiv.classList.remove('hidden');
+      } else {
+        suggestionsDiv.classList.add('hidden');
+      }
+
+      // Dynamic background based on risk
+      if (prob > 0.5) {
+        resultDiv.style.background = 'linear-gradient(135deg, #ff9800, #ffb74d)';
+        resultDiv.style.color = 'white';
+      } else {
+        resultDiv.style.background = 'linear-gradient(135deg, #4caf50, #81c784)';
+        resultDiv.style.color = 'white';
+      }
 
     } catch (err) {
       loadingDiv.classList.add('hidden');
@@ -243,6 +772,7 @@
   document.getElementById('btn-next').onclick = () => {
     resultDiv.classList.add('hidden');
     locationStep.classList.remove('hidden');
+    locationStep.classList.add('fade-in');
   };
 
   // Get GPS location
@@ -311,8 +841,9 @@
         return;
       }
 
-      // Show hospitals
+      // Show hospitals with animation
       nearbyDiv.classList.remove('hidden');
+      nearbyDiv.classList.add('fade-in');
       if (data.nearby_hospitals && data.nearby_hospitals.length > 0) {
         document.getElementById('hosp-list').innerHTML =
           '<ul>' + data.nearby_hospitals.map(h => `<li>${h}</li>`).join('') + '</ul>';

@@ -33,9 +33,12 @@ print("[INFO] Using columns:", list(df.columns))
 # Convert Gender numeric to text for encoding
 df["Gender"] = df["Gender"].apply(lambda x: "Male" if x == 1 else "Female")
 
-# Add dummy Smoking column (since Kaggle dataset doesn't have it)
-df["Smoking"] = "No"  # Default value for all rows
-df = df[["Age", "Gender", "Blood Pressure", "Cholesterol Level", "Smoking", "Heart Disease Status"]]
+# Add synthetic BMI and Smoking for completeness and variation
+import numpy as np
+np.random.seed(42)
+df["BMI"] = np.random.normal(25, 5, len(df)).clip(18, 40)  # Realistic BMI range
+df["Smoking"] = np.random.choice(["Yes", "No"], size=len(df), p=[0.2, 0.8])
+df = df[["Age", "Gender", "Blood Pressure", "Cholesterol Level", "BMI", "Smoking", "Heart Disease Status"]]
 
 # Encode categorical columns (Gender, Smoking)
 encoders = {}

@@ -43,7 +43,7 @@ def predict():
 
         # Define the exact feature names expected by the model
         # Adjust this list to match your model's training features exactly
-        expected_feature_names = ['Age', 'Gender', 'Blood Pressure', 'Cholesterol Level', 'BMI']
+        expected_feature_names = ['Age', 'Gender', 'Blood Pressure', 'Cholesterol Level', 'BMI', 'Smoking']
 
         for feature_name in expected_feature_names:
             value = features_data.get(feature_name)
