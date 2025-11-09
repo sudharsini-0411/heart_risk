@@ -17,6 +17,17 @@ print("[INFO] Loading model and encoders...")
 model = joblib.load(MODEL_PATH)
 encoders = joblib.load(ENCODER_PATH)
 print("[INFO] Model and encoders loaded successfully.")
+print(f"[INFO] Model type: {type(model)}")
+print(f"[INFO] Model features: {model.n_features_in_}")
+
+# Test extreme case on startup
+test_extreme = [78, 1, 325, 425, 30, 1]
+try:
+    pred = model.predict([test_extreme])[0]
+    prob = model.predict_proba([test_extreme])[0][1]
+    print(f"[TEST] Extreme case prediction: {pred} ({prob*100:.1f}%)")
+except Exception as e:
+    print(f"[ERROR] Model test failed: {e}")
 
 @app.route("/")
 def home():
@@ -66,7 +77,7 @@ def predict():
         try:
             prediction = model.predict([features])[0]
             probability = model.predict_proba([features])[0][1]
-            risk_result = "High Risk of Heart Disease 💔" if prediction == 1 else "Low Risk ❤️"
+            risk_result = "High Risk of Heart Disease 💔" if probability > 0.1 else "Low Risk ❤️"
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
